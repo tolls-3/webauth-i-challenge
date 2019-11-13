@@ -21,6 +21,7 @@ router.post("/login", (req, res) => {
   Users.findBy(username)
     .then(user => {
       if (user && bcrypt.compareSync(password, user.password)) {
+        req.session.user = user;
         res.status(200).json({ message: `Welcome ${user.username}!` });
       } else {
         res.status(401).json({ message: "Invalid Credentials" });
@@ -29,7 +30,7 @@ router.post("/login", (req, res) => {
     .catch(error => {
       res.status(500).json(error);
     });
-});
+}); 
 
 router.get("/users", restricted, (req, res) => {
   Users.find()
@@ -39,19 +40,29 @@ router.get("/users", restricted, (req, res) => {
     .catch(err => res.send(err));
 });
 
-function restricted(req, res, next) {
-  const { username, password } = req.headers;
-  Users.findBy(username)
-    .then(user => {
-      if (user && bcrypt.compareSync(password, user.password)) {
-        next();
-      } else {
-        res.status(401).json({ message: "You shall not pass" });
+router.get("/logout", (req, res)=>{
+  if(req.session){
+    req.session.destroy(err=>{
+      if(err){
+        res.json({errorMessage:"unable to logout"})
+      }else{
+        res.status(200).json({message:"successful logout"})
       }
     })
-    .catch(error => {
-      res.status(500).json({ message: error.message });
-    });
+  }else{
+    res.json({message:"you were never here to begin with"})
+  }
+})
+
+function restricted(req, res, next) {
+  const { username, password } = req.headers;
+  if (req.session && req.session.user) {
+    next();
+  } else {
+    res
+      .status(401)
+      .json({ errorMessage: "You shall not pass" });
+  }
 }
 
 module.exports = router;
